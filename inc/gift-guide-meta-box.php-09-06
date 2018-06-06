@@ -1,0 +1,206 @@
+<?php 
+/**
+* Register meta box(es) pros.
+*/
+class gift_guide_meta_box {
+
+	public function __construct() {
+		add_action( 'add_meta_boxes', array( $this, 'gift_guide_register_meta_boxes' ) );
+		add_action( 'save_post', array( $this, 'gift_guide_save_meta_box' ) );
+		add_action( 'save_post', array( $this, 'post_save_meta_box' ) );
+		
+		add_action('admin_print_scripts', array($this, 'admin_scripts'));
+		add_action('wp_ajax_nopriv_get_post_name',array($this, 'get_post_name') );
+		add_action('wp_ajax_get_post_name', array($this, 'get_post_name') );
+	}
+	
+	public function admin_scripts() {
+		wp_enqueue_media();
+		wp_register_style('myprefix-jquery-ui','http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css');
+ 		wp_enqueue_script( 'gift_search_autocomplete', plugin_dir_url( __FILE__ ) . 'assets/js/jquery-ui-autocomplete.js', array('jquery'), '1.0' ); 
+		wp_register_script('gift_upload_img', plugins_url( 'assets/js/upload-gift-media.js', __FILE__ ) , array('jquery')); 
+		wp_enqueue_script('gift_upload_img');
+		wp_localize_script('gift_upload_img', 'WPOPTION', array( 'siteurl' => get_option('siteurl') ));	
+		wp_localize_script( 'gift_upload_img', 'ajax_object_auto',
+        array( 'ajax_url' => admin_url( 'admin-ajax.php' ) ) );
+    }
+
+	public function gift_guide_register_meta_boxes() {
+		  add_meta_box('amazon-product-imag-add-list','Gift Guide options',array( $this, 'gift_guide_product_meta_box'),array('gift_guide'),'advanced','high','');
+		  add_meta_box('amazon-product-default-post','Gift Guide',array( $this, 'post_product_meta_box'),array('post'),'advanced','high','');
+	}
+	/**
+	 * Meta box display callback.
+	 *add_amazon_pros_meta_box
+	 * @param WP_Post $post Current post object.
+	 */
+	public function gift_guide_product_meta_box( $post ) {
+	    if( 'gift_guide' != $post->post_type ){
+			return;
+		}
+		$title = explode('^',get_post_meta($post->ID, 'gift_title', true));	
+		$link = explode('^',get_post_meta($post->ID, 'gift_link', true));
+		$img = explode('^',get_post_meta($post->ID, 'gift_image', true));
+		$description = explode('^',get_post_meta($post->ID, 'gift_description', true));
+		
+		$gift_link_uk = explode('^',get_post_meta($post->ID, 'gift_link_uk', true));
+		$gift_link_inbound = explode('^',get_post_meta($post->ID, 'gift_link_inbound', true));
+		
+		
+		$args = array (
+			'tinymce' => true,
+			'quicktags' => true,
+			'textarea_rows' => 5,
+			'editor_class' => 'gift_guide_editor',
+			'editor_height' => 30,
+		);
+		
+		$gift_array = array();
+		for($gift=0;$gift<count($title);$gift++){
+			$gift_array[$gift][]=$title[$gift];
+			$gift_array[$gift][]=$link[$gift];
+			$gift_array[$gift][]=$img[$gift];
+			
+			$gift_array[$gift][]= $description[$gift];
+			
+			$gift_array[$gift][]=$gift_link_uk[$gift];
+			$gift_array[$gift][]=$gift_link_inbound[$gift];
+			//$gift_array[$gift][]= $args;
+		}
+		
+		
+		?>
+        
+		<table style="width:100%" id="gifttr">
+        	<tr>
+              <td colspan="4" align="right"><button type="button" id="add_more_gift" class="addmore">Add more</button></td>
+            </tr>
+        <?php 
+		//$description_id = 1;
+		foreach($gift_array as $gifts){
+		/* $settings = array(  'textarea_name' => 'gift_description-'.$description_id,
+                 'quicktags' => false,
+                 'media_buttons' => false,
+                 'teeny' => true,
+				 //'editor_height' => 133, // In pixels, takes precedence and has no default value
+				 'textarea_rows' => 3,
+                 'tinymce'=> array(
+                 'theme_advanced_disable' => 'fullscreen'
+                       )
+); */
+			 ?>
+        	<tr>
+            	<td><p>Title: </p><input type="text" name="gift_title[]" id="gift_title" value="<?php echo $gifts[0]; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Gift Title"></td>
+                <td><p>Link US: </p><input type="text" name="gift_link[]" id="gift_link" value="<?php echo $gifts[1]; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Gift Link"></td>
+                <td><p>Link UK: </p> <input type="text" name="gift_link_uk[]" id="gift_link_uk" value="<?php echo $gifts[4]; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Link UK"></td>
+                <td><p>Link Inbound: </p> <input type="text" name="gift_link_inbound[]" id="gift_link_inbound" value="<?php echo $gifts[5]; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Link Inbound"></td>
+                 <td class="upload_image_button_url"><p>Image: </p><input type="text" name="gift_image[]" id="gift_image" value="<?php echo $gifts[2]; ?>" style="height:40px; width:80%;" class="amazon-form-control upload_image_button_image" placeholder="Gift Image">
+                <input id="upload_image_button" class="upload_image_button" type = "button" value = "Upload"></td>
+                 <td><p>Description: </p><?php //wp_editor( $gifts[3], 'gift_description-'.$description_id,$settings); ?><textarea name="gift_description[]" id="gift_description-<?php echo $description_id;?>" style="height:80px;width:100%;" class="amazon-form-control widefat" placeholder="Description"><?php echo $gifts[3]; ?></textarea></td>
+                <td><a href="javascript:void(0)" class="btn btn-default remove_more_gift">Remove</a></td>
+            </tr>
+            
+            <?php //$description_id++; 
+			} ?>
+         </table>
+         <style>
+		 #add_more_gift{
+			position: absolute;
+			bottom: 10px;
+			right: 10px;
+		 }
+		 a.btn-default {
+			color: #333;
+			background: #ddd;
+			border: 1px solid #ddd;
+			position: relative;
+			top: 22px;
+			left: 20px;
+			padding: 6px 12px;
+		 }
+		 
+		 </style>
+<?php
+	}
+	
+	
+	
+// MEta boxes for post_type => posts_nav_link
+	public function post_product_meta_box( $post ) {
+		$title = get_post_meta($post->ID, 'gift_post_title', true);	
+		$link = get_post_meta($post->ID, 'gift_post_link_us', true);
+		$link_uk = get_post_meta($post->ID, 'gift_post_link_uk', true);
+		$img = get_post_meta($post->ID, 'gift_post_image', true);		
+		?>
+        <table style="width:100%">
+        	<tr>
+            	<td><p>Title: </p><input type="text" name="gift_post_title" id="gift_post_title" value="<?php echo $title; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Title"></td>
+                <td><p>Link US: </p><input type="text" name="gift_post_link_us" id="gift_post_link_us" value="<?php echo $link; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Link US"></td>
+                <td><p>Link UK: </p> <input type="text" name="gift_post_link_uk" id="gift_post_link_uk" value="<?php echo $link_uk; ?>" style="height:40px; width:100%;" class="amazon-form-control" placeholder="Link UK"></td>
+                <td class="upload_image_button_url"><p>Image: </p><input type="text" name="gift_post_image" id="gift_post_image" value="<?php echo $img; ?>" style="height:40px; width:80%;" class="amazon-form-control upload_image_button_image" placeholder="Image"><input id="upload_image_button" class="upload_image_button" type = "button" value = "Upload">
+            </tr>
+         </table>       
+<?php }
+	
+	/**
+	 * Save meta box content for post type=> post.
+	 */
+	public function post_save_meta_box($post_id){
+		
+		if($_POST['post_type'] != 'post'){
+			return $post_id;
+		} 
+		update_post_meta($post_id, 'gift_post_title', $_POST['gift_post_title']);
+		update_post_meta($post_id, 'gift_post_link_us', $_POST['gift_post_link_us']);
+		update_post_meta($post_id, 'gift_post_link_uk', $_POST['gift_post_link_uk']);
+		update_post_meta($post_id, 'gift_post_image', $_POST['gift_post_image']);
+	}
+	
+	
+	/**
+	 * Save meta box content for post type=> gift_guide.
+	 *
+	 * @param int $post_id Post ID
+	 */
+	public function gift_guide_save_meta_box($post_id){
+		if($_POST['post_type'] != 'gift_guide'){
+			return $post_id;
+		}
+		
+		$my_cat = array('cat_name' => $_POST['post_title'], 'category_description' => '', 'taxonomy' => 'gift_category' );
+		$my_cat_id = wp_insert_category($my_cat);
+		
+		$title = implode('^', $_POST['gift_title']); 
+		update_post_meta($post_id,'gift_title',$title);
+		$link = implode('^',$_POST['gift_link']);
+		update_post_meta($post_id,'gift_link',$link);
+		$img = implode('^',$_POST['gift_image']);
+		update_post_meta($post_id,'gift_image', $img);
+		$description = implode('^',$_POST['gift_description']);
+		update_post_meta($post_id,'gift_description',$description);
+		$gift_link_uk = implode('^',$_POST['gift_link_uk']);
+		update_post_meta($post_id,'gift_link_uk',$gift_link_uk);
+		$gift_link_inbound = implode('^',$_POST['gift_link_inbound']);
+		update_post_meta($post_id,'gift_link_inbound',$gift_link_inbound);
+	}
+	
+	public function get_post_name(){
+		$posts = get_posts( 
+			array(
+			'posts_per_page' 	=> -1,		
+			'post_type'			=> 'gift_guide',	
+			's'					=>$_REQUEST['term'],
+			)
+		);	
+		$result=array();
+		foreach ( $posts as $post ){
+			$result['myData'][] = array(			
+				'value' => $post->ID,
+				'label' => $post->post_title,
+			);	
+		}
+		echo json_encode($result);
+		die();
+	}
+}
+new gift_guide_meta_box;
